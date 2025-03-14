@@ -3,7 +3,7 @@ name: Deploy to Firebase Hosting on push
 on:
   push:
     branches:
-      - main  # Use the branch you want to deploy from, such as "main"
+      - main  # Or the branch you want to deploy from
 
 jobs:
   deploy:
@@ -13,10 +13,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '20'  # You can specify your Node.js version here
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build the project
+        run: npm run build  # If your project has a build step (like for React, Angular, etc.)
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
