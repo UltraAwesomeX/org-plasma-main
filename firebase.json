@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "plasma-org-main",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
