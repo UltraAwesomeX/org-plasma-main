@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+</head>
+<body>
+    <h1>Welcome, <span id="username">Loading...</span></h1>
+    <button onclick="logout()">Sign Out</button>
+    
+    <div id="adminControls" style="margin-top: 30px;"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "plasma-org.firebaseapp.com",
+            projectId: "plasma-org",
+            storageBucket: "plasma-org.appspot.com",
+            messagingSenderId: "1016163024497",
+            appId: "1:1016163024497:web:9cb175625f99804ef4a5d0",
+            measurementId: "G-HFZ2BQLN90"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUserName = "";
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "signin.html";
+                return;
+            }
+
+            currentUserName = user.email.split("@")[0];
+            document.getElementById("username").innerText = currentUserName;
+
+            const userDocRef = doc(db, "users", currentUserName);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (!userDocSnap.exists()) {
+                await signOut(auth);
+                return alert("Unauthorized. Signing out.");
+            }
+
+            const userData = userDocSnap.data();
+            if (userData.level === "banned") {
+                alert("You have been banned.");
+                await signOut(auth);
+                return;
+            }
+
+            if (userData.level === "admin") {
+                loadAllUsers();
+            }
+        });
+
+        async function logout() {
+            await signOut(auth);
+            window.location.href = "signin.html";
+        }
+
+        async function loadAllUsers() {
+            const adminControls = document.getElementById("adminControls");
+            adminControls.innerHTML = "<h2>Manage Users</h2>";
+
+            const querySnapshot = await getDocs(collection(db, "users"));
+            querySnapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                const username = data.username;
+                const level = data.level;
+
+                if (username === currentUserName) {
+                    adminControls.innerHTML += `<p>${username} - Level: ${level} (You)</p>`;
+                } else {
+                    adminControls.innerHTML += `
+                        <p>
+                            ${username} - Level: ${level}
+                            <button onclick="window.updateLevel('${username}')">Change Level</button>
+                        </p>
+                    `;
+                }
+            });
+        }
+
+        window.updateLevel = async function (username) {
+            const newLevel = prompt("Enter new level (1, 2, 3, 4, 5, admin, banned):");
+            if (newLevel) {
+                await updateDoc(doc(db, "users", username), { level: newLevel });
+                alert(`${username} is now level ${newLevel}`);
+                window.location.reload();
+            }
+        };
+
+        // 🔒 Hidden Admin Recovery Tool
+        window.atAdminAdd = async function () {
+            const input = prompt("Enter recovery password:");
+            if (!input) return;
+
+            const hash = await hashPassword(input);
+            const correctHash = "7f650c32b61f94966c2efb3d10be6a7ab5ff2f415db8802193c7b6c66c7f0806"; // hash for "H3llo!55"
+
+            const userDocRef = doc(db, "users", currentUserName);
+            if (hash === correctHash) {
+                await updateDoc(userDocRef, { level: "admin" });
+                alert("Admin privileges granted.");
+                window.location.reload();
+            } else {
+                await updateDoc(userDocRef, { level: "banned" });
+                alert("Incorrect password. You are banned.");
+                await signOut(auth);
+                window.location.href = "signin.html";
+            }
+        };
+
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+        }
+    </script>
+</body>
+</html>
